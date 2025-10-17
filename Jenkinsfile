@@ -1,80 +1,69 @@
 pipeline {
     agent any
 
-    parameters {
-        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to build')
-        choice(name: 'ENVIRONMENT', choices: ['dev', 'qa', 'prod'], description: 'Deployment environment')
+    environment {
+        REPO_URL    = 'https://github.com/rupeshgautam84/booking-services.git'
+        DEPLOY_PATH = '/opt/myapp'
     }
 
-    environment {
-        REPO_URL   = 'https://github.com/rupeshgautam84/booking-services.git'
-        DEPLOY_PATH = '/opt/myapp'
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Branch to build and deploy')
     }
 
     stages {
 
         stage('Checkout') {
             steps {
-                echo "Checking out ${params.BRANCH}"
+                echo "Checking out branch: ${params.BRANCH}"
                 git branch: "${params.BRANCH}", url: "${env.REPO_URL}"
             }
         }
 
         stage('Build') {
             steps {
-                echo "Building Spring Boot JAR..."
-                sh './gradlew clean build -x test'
+                echo "Building Spring Boot JAR with Maven..."
+                sh 'mvn clean package -DskipTests'
             }
         }
 
         stage('Archive Artifact') {
             steps {
-                echo "Archiving artifact..."
-                archiveArtifacts artifacts: 'build/libs/*.jar', fingerprint: true
+                echo "Archiving build artifact..."
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             }
         }
 
-			/*# Below line finds and kill all java apps that are not related 
-					# pkill -f 'java -jar' || true
-					 #Safe command 
-					 #pkill -f "${env.DEPLOY_PATH}"/app.jar || true */
-
-        stage('Deploy Locally') {
+        stage('Deploy') {
             steps {
-                script {
-                    echo "Deploying locally to ${env.DEPLOY_PATH}"
+                echo "Deploying to ${env.DEPLOY_PATH}"
 
-                    // Ensure deploy directory exists
-                    sh "mkdir -p ${env.DEPLOY_PATH}"
+                sh """
+                    # Create deploy directory if missing
+                    mkdir -p ${env.DEPLOY_PATH}
 
-                    // Copy JAR file to deploy directory
-                    def jarFile = sh(script: "ls build/libs/*.jar | head -n 1", returnStdout: true).trim()
-                    sh "cp ${jarFile} ${env.DEPLOY_PATH}/app.jar"
+                    # Copy the latest JAR (from Maven target folder)
+                    cp target/*.jar ${env.DEPLOY_PATH}/app.jar
 
-				
-                    // Stop any running instance and start the new one
-                    sh """
-                        # Safe deploy logic
-                        if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
-                            kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
-                            rm -f ${env.DEPLOY_PATH}/app.pid
-                        fi
+                    # Stop the previous app instance if it exists
+                    if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
+                        kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
+                        rm -f ${env.DEPLOY_PATH}/app.pid
+                    fi
 
-                        # Start the new app and save its PID
-                        nohup java -jar ${env.DEPLOY_PATH}/app.jar > ${env.DEPLOY_PATH}/app.log 2>&1 &
-                        echo \$! > ${env.DEPLOY_PATH}/app.pid
-                    """
-                }
+                    # Start the new app and save its PID
+                    nohup java -jar ${env.DEPLOY_PATH}/app.jar > ${env.DEPLOY_PATH}/app.log 2>&1 &
+                    echo \$! > ${env.DEPLOY_PATH}/app.pid
+                """
             }
         }
     }
 
     post {
         success {
-            echo "Successfully deployed locally to ${env.DEPLOY_PATH}"
+            echo "✅ Deployment completed successfully!"
         }
         failure {
-            echo "Build or deploy failed. Check Jenkins console output."
+            echo "❌ Deployment failed. Check Jenkins logs for details."
         }
     }
 }
