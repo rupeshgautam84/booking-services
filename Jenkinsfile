@@ -4,7 +4,7 @@ pipeline {
     agent any
 
     environment {
-        REPO_URL    = 'https://github.com/rupeshgautam84/booking-services.git'
+        REPO_URL = 'https://github.com/rupeshgautam84/booking-services.git'
     }
 
     parameters {
@@ -32,10 +32,18 @@ pipeline {
             }
         }
 
+        stage('Prepare Deployment Script') {
+            steps {
+                echo "Making deploy.sh executable"
+                sh 'chmod +x ./deploy.sh'
+            }
+        }
+
         stage('Deploy') {
             steps {
-                echo "Deploying application using deploy.sh..."
-                sh "./deploy.sh ${params.ENV} ${params.PORT}"
+                echo "Deploying application using deploy.sh"
+                // Pass ENV and PORT to the script
+                sh "./deploy.sh ${params.ENV} ${params.PORT} localhost"
             }
         }
     }
