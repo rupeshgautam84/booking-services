@@ -51,12 +51,12 @@ pipeline {
                     mkdir -p ${env.DEPLOY_PATH}
                     chown jenkins:jenkins ${env.DEPLOY_PATH}
 
-                    # Find the latest JAR
+                    # Find latest JAR
                     latest_jar=\$(ls -t target/*.jar | head -n 1)
                     echo "Using JAR: \$latest_jar"
                     cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-                    # Handle properties file
+                    # Determine configuration
                     if [ "${params.ENV}" = "default" ]; then
                         echo "Using embedded application.properties"
                         config_option=""
@@ -66,13 +66,13 @@ pipeline {
                         config_option="--spring.config.location=file:${env.DEPLOY_PATH}/application.properties"
                     fi
 
-                    # Stop previous instance
+                    # Stop previous app if exists
                     if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
                         kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
                         rm -f ${env.DEPLOY_PATH}/app.pid
                     fi
 
-                    # Start the app with setsid in background
+                    # Start app in background
                     setsid java -jar ${env.DEPLOY_PATH}/app.jar \
                         \$config_option \
                         --spring.profiles.active=${params.ENV} \
@@ -83,10 +83,10 @@ pipeline {
                     # Save PID
                     echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-                    # Wait for the app to start
+                    # Wait a few seconds
                     sleep 5
 
-                    # Verify the app
+                    # Verify app is running
                     if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
                         echo "❌ Deployment failed: Spring Boot app is not running!"
                         tail -n 50 ${env.DEPLOY_PATH}/app.log
