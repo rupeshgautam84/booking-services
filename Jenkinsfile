@@ -53,22 +53,27 @@ pipeline {
                     echo "Using JAR: \$latest_jar"
                     cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-                    # Determine environment, fallback to default if empty
+                    # Determine environment (fallback to 'default' if empty)
                     ENVIRONMENT="${params.ENV}"
-                    if [ -z "\$ENVIRONMENT" ] || [ "\$ENVIRONMENT" = "default" ]; then
-                        PROPERTIES_FILE="src/main/resources/application.properties"
-                        echo "Using default application.properties"
-                    else
-                        PROPERTIES_FILE="src/main/resources/application-\$ENVIRONMENT.properties"
-                        echo "Using environment-specific properties file: \$PROPERTIES_FILE"
+                    if [ -z "\$ENVIRONMENT" ]; then
+                        ENVIRONMENT="default"
                     fi
 
-                    # Copy properties file if exists
-                    if [ -f \$PROPERTIES_FILE ]; then
-                        cp \$PROPERTIES_FILE ${env.CONFIG_PATH}/application.properties
+                    # Select correct properties file
+                    if [ "\$ENVIRONMENT" = "default" ]; then
+                        PROPERTIES_FILE="src/main/resources/application.properties"
+                        echo "📘 Using default application.properties"
+                    else
+                        PROPERTIES_FILE="src/main/resources/application-\$ENVIRONMENT.properties"
+                        echo "🌍 Using environment-specific file: \$PROPERTIES_FILE"
+                    fi
+
+                    # Copy config file if it exists
+                    if [ -f "\$PROPERTIES_FILE" ]; then
+                        cp "\$PROPERTIES_FILE" ${env.CONFIG_PATH}/application.properties
                         CONFIG_OPTION="--spring.config.location=file:${env.CONFIG_PATH}/application.properties"
                     else
-                        echo "⚠️ Properties file \$PROPERTIES_FILE not found. Using embedded application.properties inside JAR"
+                        echo "⚠️ File not found: \$PROPERTIES_FILE. Using embedded properties inside JAR."
                         CONFIG_OPTION=""
                     fi
 
@@ -78,7 +83,7 @@ pipeline {
                         rm -f ${env.DEPLOY_PATH}/app.pid
                     fi
 
-                    # Start Spring Boot app detached
+                    # Start Spring Boot app
                     nohup setsid java -jar ${env.DEPLOY_PATH}/app.jar \
                         \$CONFIG_OPTION \
                         --spring.profiles.active=\$ENVIRONMENT \
@@ -89,17 +94,15 @@ pipeline {
                     # Save PID
                     echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-                    # Wait for app to start
+                    # Verify app started
                     sleep 5
-
-                    # Verify app
                     if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
-                        echo "❌ Deployment failed: Spring Boot app is not running!"
+                        echo "❌ Deployment failed — Spring Boot app is not running!"
                         tail -n 50 ${env.DEPLOY_PATH}/app.log
                         exit 1
                     fi
 
-                    echo "✅ Deployment verified: PID \$(cat ${env.DEPLOY_PATH}/app.pid), port ${params.PORT}, profile \$ENVIRONMENT"
+                    echo "✅ Deployment successful: PID \$(cat ${env.DEPLOY_PATH}/app.pid), port ${params.PORT}, profile \$ENVIRONMENT"
                 """
             }
         }
