@@ -58,30 +58,23 @@ if [ -f "$DEPLOY_PATH/app.pid" ]; then
 fi
 
 # --- START NEW INSTANCE ---
-echo "🚀 Launching new instance in background..."
+echo "🚀 Launching new instance fully detached from Jenkins..."
 
-(
-  nohup java -jar "$DEPLOY_PATH/app.jar" \
+# run Java in a separate session that won't die when Jenkins closes the shell
+nohup setsid bash -c "
+  java -jar '$DEPLOY_PATH/app.jar' \
       $CONFIG_OPTION \
-      --spring.profiles.active="$ENVIRONMENT" \
-      --server.port="$PORT" \
-      --logging.file.name="$DEPLOY_PATH/app.log" \
-      > "$DEPLOY_PATH/nohup.out" 2>&1 &
-  echo $! > "$DEPLOY_PATH/app.pid"
-  disown
-) &
+      --spring.profiles.active='$ENVIRONMENT' \
+      --server.port='$PORT' \
+      --logging.file.name='$DEPLOY_PATH/app.log' \
+      > '$DEPLOY_PATH/nohup.out' 2>&1 &
+  echo \$! > '$DEPLOY_PATH/app.pid'
+" >/dev/null 2>&1 < /dev/null &
 
 sleep 5
 
 # --- VERIFY STARTUP ---
-new_pid=$(cat "$DEPLOY_PATH/app.pid")
-if ps -p "$new_pid" > /dev/null 2>&1; then
-    echo "✅ Application started successfully (PID $new_pid)"
-else
-    echo "❌ Application failed to start!"
-    echo "Last 50 log lines:"
-    tail -n 50 "$DEPLOY_PATH/app.log" || true
-    exit 1
-fi
-
-echo "✅ Deployment complete. Logs at: $DEPLOY_PATH/app.log"
+if [ -f "$DEPLOY_PATH/app.pid" ]; then
+  new_pid=$(cat "$DEPLOY_PATH/app.pid")
+  if ps -p "$new_pid" > /dev/null 2>&1; then
+      echo "✅ App
