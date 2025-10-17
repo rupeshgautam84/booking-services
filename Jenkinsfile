@@ -46,25 +46,36 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo "Deploying to ${env.DEPLOY_PATH}"
+               sh """
+        # Create deploy directory if missing
+        mkdir -p ${env.DEPLOY_PATH}
 
-                sh """
-                    # Create deploy directory if missing
-                    mkdir -p ${env.DEPLOY_PATH}
+        # Copy the latest JAR (from Maven target folder)
+        cp target/*.jar ${env.DEPLOY_PATH}/app.jar
 
-                    # Copy the latest JAR (from Maven target folder)
-                    cp target/*.jar ${env.DEPLOY_PATH}/app.jar
+        # Stop the previous app instance if it exists
+        if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
+            kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
+            rm -f ${env.DEPLOY_PATH}/app.pid
+        fi
 
-                    # Stop the previous app instance if it exists
-                    if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
-                        kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
-                        rm -f ${env.DEPLOY_PATH}/app.pid
-                    fi
+        # Start the new app in background and save its PID
+        nohup java -jar ${env.DEPLOY_PATH}/app.jar > ${env.DEPLOY_PATH}/app.log 2>&1 &
+        echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-                    # Start the new app and save its PID
-                    nohup java -jar ${env.DEPLOY_PATH}/app.jar > ${env.DEPLOY_PATH}/app.log 2>&1 &
-                    echo \$! > ${env.DEPLOY_PATH}/app.pid
-                """
+        # Wait a few seconds for the app to start
+        sleep 5
+
+        # Verify the app is running by checking the PID
+        if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
+            echo "❌ Deployment failed: Spring Boot app is not running!"
+            tail -n 50 ${env.DEPLOY_PATH}/app.log
+            exit 1
+        fi
+
+        echo "✅ Deployment verified: app is running with PID \$(cat ${env.DEPLOY_PATH}/app.pid)"
+        """
+
             }
         }
     }
