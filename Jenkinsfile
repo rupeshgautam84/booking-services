@@ -53,20 +53,21 @@ pipeline {
                     echo "Using JAR: \$latest_jar"
                     cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-                    # Handle config file
+                    # Determine properties file
                     if [ "${params.ENV}" = "default" ]; then
                         PROPERTIES_FILE="src/main/resources/application.properties"
-                        echo "Copying default application.properties"
+                        echo "Using default application.properties"
                     else
                         PROPERTIES_FILE="src/main/resources/application-${params.ENV}.properties"
-                        echo "Copying environment-specific properties file: \$PROPERTIES_FILE"
+                        echo "Using environment-specific properties file: \$PROPERTIES_FILE"
                     fi
 
+                    # Copy properties file if exists
                     if [ -f \$PROPERTIES_FILE ]; then
                         cp \$PROPERTIES_FILE ${env.CONFIG_PATH}/application.properties
                         CONFIG_OPTION="--spring.config.location=file:${env.CONFIG_PATH}/application.properties"
                     else
-                        echo "⚠️ Properties file \$PROPERTIES_FILE not found, using embedded application.properties"
+                        echo "⚠️ Properties file \$PROPERTIES_FILE not found. Using embedded application.properties inside JAR"
                         CONFIG_OPTION=""
                     fi
 
