@@ -44,8 +44,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh """
-                    # Create deploy and config directories
-                    mkdir -p ${env.DEPLOY_PATH}/config
+                    # Create deploy/config directories
+                    mkdir -p ${env.CONFIG_PATH}
                     chown jenkins:jenkins ${env.DEPLOY_PATH} -R
 
                     # Find latest JAR
@@ -55,18 +55,19 @@ pipeline {
 
                     # Handle config file
                     if [ "${params.ENV}" = "default" ]; then
-                        echo "Using embedded application.properties inside JAR"
-                        CONFIG_OPTION=""
+                        PROPERTIES_FILE="src/main/resources/application.properties"
+                        echo "Copying default application.properties"
                     else
                         PROPERTIES_FILE="src/main/resources/application-${params.ENV}.properties"
-                        if [ -f \$PROPERTIES_FILE ]; then
-                            echo "Copying environment-specific properties file: \$PROPERTIES_FILE"
-                            cp \$PROPERTIES_FILE ${env.DEPLOY_PATH}/config/application.properties
-                            CONFIG_OPTION="--spring.config.location=file:${env.DEPLOY_PATH}/config/application.properties"
-                        else
-                            echo "⚠️ Properties file \$PROPERTIES_FILE not found, using embedded application.properties"
-                            CONFIG_OPTION=""
-                        fi
+                        echo "Copying environment-specific properties file: \$PROPERTIES_FILE"
+                    fi
+
+                    if [ -f \$PROPERTIES_FILE ]; then
+                        cp \$PROPERTIES_FILE ${env.CONFIG_PATH}/application.properties
+                        CONFIG_OPTION="--spring.config.location=file:${env.CONFIG_PATH}/application.properties"
+                    else
+                        echo "⚠️ Properties file \$PROPERTIES_FILE not found, using embedded application.properties"
+                        CONFIG_OPTION=""
                     fi
 
                     # Stop previous app if running
