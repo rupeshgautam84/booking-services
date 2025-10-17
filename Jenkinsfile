@@ -19,6 +19,7 @@ pipeline{
 				echo "Checking out ${params.BRANCH}"
 				git branch: "${params.BRANCH}",url: "{env.REPO_URL}"
 		}
+		}
 	}
 	
 	stage('Build'){
