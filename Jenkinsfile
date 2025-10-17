@@ -44,11 +44,12 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
-            steps {
-               sh """
+      stage('Deploy') {
+    steps {
+       sh """
         # Create deploy directory if missing
         mkdir -p ${env.DEPLOY_PATH}
+        chown jenkins:jenkins ${env.DEPLOY_PATH}
 
         # Copy the latest JAR (from Maven target folder)
         cp target/*.jar ${env.DEPLOY_PATH}/app.jar
@@ -59,8 +60,14 @@ pipeline {
             rm -f ${env.DEPLOY_PATH}/app.pid
         fi
 
-        # Start the new app in background and save its PID
-        nohup java -jar ${env.DEPLOY_PATH}/app.jar > ${env.DEPLOY_PATH}/app.log 2>&1 &
+        # Start the new app in background using setsid and Spring Boot file logging
+        setsid java -jar ${env.DEPLOY_PATH}/app.jar \
+            --spring.profiles.active=default \
+            --server.port=9090 \
+            --logging.file.name=${env.DEPLOY_PATH}/app.log \
+            > ${env.DEPLOY_PATH}/nohup.log 2>&1 < /dev/null &
+
+        # Save the PID
         echo \$! > ${env.DEPLOY_PATH}/app.pid
 
         # Wait a few seconds for the app to start
@@ -75,9 +82,9 @@ pipeline {
 
         echo "✅ Deployment verified: app is running with PID \$(cat ${env.DEPLOY_PATH}/app.pid)"
         """
+    }
+}
 
-            }
-        }
     }
 
     post {
