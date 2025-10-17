@@ -44,21 +44,25 @@ pipeline {
             }
         }
 
-       stage('Deploy') {
+      stage('Deploy') {
     steps {
         sh """
-            # Create deploy directory if missing
+            # Create deploy directory and config folder if missing
             mkdir -p ${env.DEPLOY_PATH}/config
-            chown -R jenkins:jenkins ${env.DEPLOY_PATH}
+            chown jenkins:jenkins ${env.DEPLOY_PATH} -R
 
             # Find latest JAR
             latest_jar=\$(ls -t target/*.jar | head -n 1)
             echo "Using JAR: \$latest_jar"
             cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-            # Copy environment-specific properties
-            echo "Copying application-${params.ENV}.properties"
-            cp target/classes/application-${params.ENV}.properties ${env.DEPLOY_PATH}/config/application.properties
+            # Copy environment-specific properties file
+            if [ "${params.ENV}" = "default" ]; then
+                echo "Using embedded application.properties"
+            else
+                echo "Copying application-${params.ENV}.properties"
+                cp src/main/resources/application-${params.ENV}.properties ${env.DEPLOY_PATH}/config/application.properties
+            fi
 
             # Stop previous app if exists
             if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
@@ -66,17 +70,17 @@ pipeline {
                 rm -f ${env.DEPLOY_PATH}/app.pid
             fi
 
-            # Start the app in background
-            nohup java -jar ${env.DEPLOY_PATH}/app.jar \
+            # Start app in background
+            setsid java -jar ${env.DEPLOY_PATH}/app.jar \
                 --spring.profiles.active=${params.ENV} \
                 --server.port=${params.PORT} \
                 --logging.file.name=${env.DEPLOY_PATH}/app.log \
-                > ${env.DEPLOY_PATH}/nohup.log 2>&1 &
+                > ${env.DEPLOY_PATH}/nohup.log 2>&1 < /dev/null &
 
             # Save PID
             echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-            # Wait a few seconds for the app to start
+            # Wait a few seconds
             sleep 5
 
             # Verify app is running
@@ -90,6 +94,7 @@ pipeline {
         """
     }
 }
+
 
     }
 
