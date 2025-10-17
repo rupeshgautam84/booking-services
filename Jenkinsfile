@@ -44,46 +44,30 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+       stage('Deploy') {
     steps {
         sh """
             # Create deploy directory if missing
-            mkdir -p ${env.DEPLOY_PATH}
-            chown jenkins:jenkins ${env.DEPLOY_PATH}
+            mkdir -p ${env.DEPLOY_PATH}/config
+            chown -R jenkins:jenkins ${env.DEPLOY_PATH}
 
-            # Show workspace info for debugging
-            echo "Workspace: \$PWD"
-            ls -l src/main/resources/
-
-            # Find the latest JAR
+            # Find latest JAR
             latest_jar=\$(ls -t target/*.jar | head -n 1)
             echo "Using JAR: \$latest_jar"
             cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-            # Handle environment properties
-            if [ "${params.ENV}" != "default" ]; then
-                prop_file="src/main/resources/application-${params.ENV}.properties"
-                if [ ! -f "\$prop_file" ]; then
-                    echo "❌ Property file \$prop_file not found!"
-                    exit 1
-                fi
-                cp "\$prop_file" ${env.DEPLOY_PATH}/application.properties
-                config_option="--spring.config.location=file:${env.DEPLOY_PATH}/application.properties"
-            else
-                echo "Using embedded application.properties"
-                config_option=""
-            fi
+            # Copy environment-specific properties
+            echo "Copying application-${params.ENV}.properties"
+            cp target/classes/application-${params.ENV}.properties ${env.DEPLOY_PATH}/config/application.properties
 
-            # Stop previous instance
+            # Stop previous app if exists
             if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
                 kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
                 rm -f ${env.DEPLOY_PATH}/app.pid
             fi
 
-            # Start app in foreground (for reliable logging)
-            echo "Starting Spring Boot app..."
+            # Start the app in background
             nohup java -jar ${env.DEPLOY_PATH}/app.jar \
-                \$config_option \
                 --spring.profiles.active=${params.ENV} \
                 --server.port=${params.PORT} \
                 --logging.file.name=${env.DEPLOY_PATH}/app.log \
@@ -92,17 +76,17 @@ pipeline {
             # Save PID
             echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-            # Wait and check if app is running
-            sleep 10
+            # Wait a few seconds for the app to start
+            sleep 5
+
+            # Verify app is running
             if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
-                echo "❌ Deployment failed: app not running"
-                echo "Last 50 lines from app.log:"
+                echo "❌ Deployment failed: Spring Boot app is not running!"
                 tail -n 50 ${env.DEPLOY_PATH}/app.log
                 exit 1
             fi
 
-            echo "✅ Deployment verified: PID \$(cat ${env.DEPLOY_PATH}/app.pid), profile ${params.ENV}, port ${params.PORT}"
-            echo "Check logs: ${env.DEPLOY_PATH}/app.log"
+            echo "✅ Deployment verified: app running with PID \$(cat ${env.DEPLOY_PATH}/app.pid) on port ${params.PORT} using profile ${params.ENV}"
         """
     }
 }
