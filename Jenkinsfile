@@ -34,6 +34,11 @@ pipeline {
             }
         }
 
+			/*# Below line finds and kill all java apps that are not related 
+					# pkill -f 'java -jar' || true
+					 #Safe command 
+					 #pkill -f "${env.DEPLOY_PATH}"/app.jar || true */
+
         stage('Deploy Locally') {
             steps {
                 script {
@@ -46,11 +51,7 @@ pipeline {
                     def jarFile = sh(script: "ls build/libs/*.jar | head -n 1", returnStdout: true).trim()
                     sh "cp ${jarFile} ${env.DEPLOY_PATH}/app.jar"
 
-					# Below line finds and kill all java apps that are not related 
-					# pkill -f 'java -jar' || true
-					 #Safe command 
-					 #pkill -f "${env.DEPLOY_PATH}"/app.jar || true
-
+				
                     // Stop any running instance and start the new one
                     sh """
                         # Safe deploy logic
