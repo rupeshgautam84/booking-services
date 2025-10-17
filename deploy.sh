@@ -4,6 +4,7 @@ set -e
 # --- CONFIG ---
 DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
+LOG_PATH="${DEPLOY_PATH}/app.log"
 
 ENVIRONMENT="${1:-default}"    # first argument = environment name
 PORT="${2:-9090}"              # second argument = port number
@@ -58,23 +59,30 @@ if [ -f "$DEPLOY_PATH/app.pid" ]; then
 fi
 
 # --- START NEW INSTANCE ---
-echo "🚀 Launching new instance fully detached from Jenkins..."
+echo "🚀 Launching new instance (fully detached from Jenkins)..."
 
-# run Java in a separate session that won't die when Jenkins closes the shell
-nohup setsid bash -c "
-  java -jar '$DEPLOY_PATH/app.jar' \
-      $CONFIG_OPTION \
-      --spring.profiles.active='$ENVIRONMENT' \
-      --server.port='$PORT' \
-      --logging.file.name='$DEPLOY_PATH/app.log' \
-      > '$DEPLOY_PATH/nohup.out' 2>&1 &
-  echo \$! > '$DEPLOY_PATH/app.pid'
-" >/dev/null 2>&1 < /dev/null &
+# Use 'at' command to schedule it immediately — completely detached from Jenkins shell
+# (make sure 'atd' service is installed and running on the server)
+echo "nohup java -jar '$DEPLOY_PATH/app.jar' \
+    $CONFIG_OPTION \
+    --spring.profiles.active='$ENVIRONMENT' \
+    --server.port='$PORT' \
+    --logging.file.name='$LOG_PATH' \
+    > '$DEPLOY_PATH/nohup.out' 2>&1 & echo \$! > '$DEPLOY_PATH/app.pid'" | at now
 
-sleep 5
+# Wait for PID file to appear (takes a few seconds)
+echo "⏳ Waiting for app to start..."
+for i in {1..10}; do
+    sleep 2
+    if [ -f "$DEPLOY_PATH/app.pid" ]; then
+        new_pid=$(cat "$DEPLOY_PATH/app.pid")
+        if ps -p "$new_pid" > /dev/null 2>&1; then
+            echo "✅ App started successfully (PID $new_pid)"
+            exit 0
+        fi
+    fi
+done
 
-# --- VERIFY STARTUP ---
-if [ -f "$DEPLOY_PATH/app.pid" ]; then
-  new_pid=$(cat "$DEPLOY_PATH/app.pid")
-  if ps -p "$new_pid" > /dev/null 2>&1; then
-      echo "✅ App
+echo "❌ Application failed to start!"
+tail -n 50 "$LOG_PATH" || true
+exit 1
