@@ -53,12 +53,13 @@ pipeline {
                     echo "Using JAR: \$latest_jar"
                     cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-                    # Determine properties file
-                    if [ "${params.ENV}" = "default" ]; then
+                    # Determine environment, fallback to default if empty
+                    ENVIRONMENT="${params.ENV}"
+                    if [ -z "\$ENVIRONMENT" ] || [ "\$ENVIRONMENT" = "default" ]; then
                         PROPERTIES_FILE="src/main/resources/application.properties"
                         echo "Using default application.properties"
                     else
-                        PROPERTIES_FILE="src/main/resources/application-${params.ENV}.properties"
+                        PROPERTIES_FILE="src/main/resources/application-\$ENVIRONMENT.properties"
                         echo "Using environment-specific properties file: \$PROPERTIES_FILE"
                     fi
 
@@ -80,7 +81,7 @@ pipeline {
                     # Start Spring Boot app detached
                     nohup setsid java -jar ${env.DEPLOY_PATH}/app.jar \
                         \$CONFIG_OPTION \
-                        --spring.profiles.active=${params.ENV} \
+                        --spring.profiles.active=\$ENVIRONMENT \
                         --server.port=${params.PORT} \
                         --logging.file.name=${env.DEPLOY_PATH}/app.log \
                         > ${env.DEPLOY_PATH}/nohup.out 2>&1 < /dev/null &
@@ -98,7 +99,7 @@ pipeline {
                         exit 1
                     fi
 
-                    echo "✅ Deployment verified: PID \$(cat ${env.DEPLOY_PATH}/app.pid), port ${params.PORT}, profile ${params.ENV}"
+                    echo "✅ Deployment verified: PID \$(cat ${env.DEPLOY_PATH}/app.pid), port ${params.PORT}, profile \$ENVIRONMENT"
                 """
             }
         }
