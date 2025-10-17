@@ -2,7 +2,7 @@ pipeline{
 	agent any
 	
 	parameter{
-		string(branch: 'BRANCH', defaultValue: 'main', description: 'Git branch to build')
+		string(branch: 'BRANCH', defaultValue: 'master', description: 'Git branch to build')
 		choic(name: 'ENVIRONMEN', choices: ['dev','qa','prod'], description: 'Deployment environment')
 		
 	}
@@ -58,8 +58,8 @@ pipeline{
 					
 					#Even better
 					if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
-						kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
-						rm -f $(env.DEPLOY_PATH)/app.pid
+						kill $(cat ${env.DEPLOY_PATH}/app.pid) || true
+						rm -f ${env.DEPLOY_PATH}/app.pid
 					fi
 					
 					#Start the new app and save its PID
