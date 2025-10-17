@@ -54,11 +54,11 @@ pipeline{
 					# pkill -f 'java -jar' || true
 					
 					#Safe command
-					#pkill -f "${env.DEPLOY_PATH}/app.jar || true
+					#pkill -f "${env.DEPLOY_PATH}"/app.jar || true
 					
 					#Even better
 					if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
-						kill $(cat ${env.DEPLOY_PATH}/app.pid) || true
+						kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
 						rm -f ${env.DEPLOY_PATH}/app.pid
 					fi
 					
