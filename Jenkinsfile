@@ -1,4 +1,8 @@
 pipeline {
+    tools {
+        maven 'Maven 3.8.7'
+    }
+
     agent any
 
     environment {
@@ -11,6 +15,13 @@ pipeline {
     }
 
     stages {
+        
+        stage('Verify Maven') {
+          steps {
+            sh 'mvn -v'
+          }
+        }
+
 
         stage('Checkout') {
             steps {
