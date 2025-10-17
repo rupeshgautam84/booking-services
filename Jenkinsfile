@@ -1,7 +1,5 @@
 pipeline {
-    tools {
-        maven 'Maven 3.8.7'
-    }
+    tools { maven 'Maven 3.8.7' }
 
     agent any
 
@@ -55,14 +53,20 @@ pipeline {
                     echo "Using JAR: \$latest_jar"
                     cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-                    # Handle config
+                    # Handle config file
                     if [ "${params.ENV}" = "default" ]; then
                         echo "Using embedded application.properties inside JAR"
                         CONFIG_OPTION=""
                     else
-                        echo "Copying environment-specific properties file: application-${params.ENV}.properties"
-                        cp src/main/resources/application-${params.ENV}.properties ${env.DEPLOY_PATH}/config/application.properties
-                        CONFIG_OPTION="--spring.config.location=file:${env.DEPLOY_PATH}/config/application.properties"
+                        PROPERTIES_FILE="src/main/resources/application-${params.ENV}.properties"
+                        if [ -f \$PROPERTIES_FILE ]; then
+                            echo "Copying environment-specific properties file: \$PROPERTIES_FILE"
+                            cp \$PROPERTIES_FILE ${env.DEPLOY_PATH}/config/application.properties
+                            CONFIG_OPTION="--spring.config.location=file:${env.DEPLOY_PATH}/config/application.properties"
+                        else
+                            echo "⚠️ Properties file \$PROPERTIES_FILE not found, using embedded application.properties"
+                            CONFIG_OPTION=""
+                        fi
                     fi
 
                     # Stop previous app if running
