@@ -12,16 +12,16 @@ pipeline {
 
     parameters {
         string(name: 'BRANCH', defaultValue: 'master', description: 'Branch to build and deploy')
+        string(name: 'ENV', defaultValue: 'local', description: 'Environment/profile to deploy (local, dev, prod, default)')
+        string(name: 'PORT', defaultValue: '9090', description: 'Port for Spring Boot app')
     }
 
     stages {
-        
         stage('Verify Maven') {
-          steps {
-            sh 'mvn -v'
-          }
+            steps {
+                sh 'mvn -v'
+            }
         }
-
 
         stage('Checkout') {
             steps {
@@ -44,47 +44,59 @@ pipeline {
             }
         }
 
-      stage('Deploy') {
-    steps {
-       sh """
-        # Create deploy directory if missing
-        mkdir -p ${env.DEPLOY_PATH}
-        chown jenkins:jenkins ${env.DEPLOY_PATH}
+        stage('Deploy') {
+            steps {
+                sh """
+                    # Create deploy directory if missing
+                    mkdir -p ${env.DEPLOY_PATH}
+                    chown jenkins:jenkins ${env.DEPLOY_PATH}
 
-        # Copy the latest JAR (from Maven target folder)
-        cp target/*.jar ${env.DEPLOY_PATH}/app.jar
+                    # Find the latest JAR
+                    latest_jar=\$(ls -t target/*.jar | head -n 1)
+                    echo "Using JAR: \$latest_jar"
+                    cp "\$latest_jar" ${env.DEPLOY_PATH}/app.jar
 
-        # Stop the previous app instance if it exists
-        if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
-            kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
-            rm -f ${env.DEPLOY_PATH}/app.pid
-        fi
+                    # Handle properties file
+                    if [ "${params.ENV}" = "default" ]; then
+                        echo "Using embedded application.properties"
+                        config_option=""
+                    else
+                        echo "Using application-${params.ENV}.properties"
+                        cp src/main/resources/application-${params.ENV}.properties ${env.DEPLOY_PATH}/application.properties
+                        config_option="--spring.config.location=file:${env.DEPLOY_PATH}/application.properties"
+                    fi
 
-        # Start the new app in background using setsid and Spring Boot file logging
-        setsid java -jar ${env.DEPLOY_PATH}/app.jar \
-            --spring.profiles.active=default \
-            --server.port=9090 \
-            --logging.file.name=${env.DEPLOY_PATH}/app.log \
-            > ${env.DEPLOY_PATH}/nohup.log 2>&1 < /dev/null &
+                    # Stop previous instance
+                    if [ -f ${env.DEPLOY_PATH}/app.pid ]; then
+                        kill \$(cat ${env.DEPLOY_PATH}/app.pid) || true
+                        rm -f ${env.DEPLOY_PATH}/app.pid
+                    fi
 
-        # Save the PID
-        echo \$! > ${env.DEPLOY_PATH}/app.pid
+                    # Start the app with setsid in background
+                    setsid java -jar ${env.DEPLOY_PATH}/app.jar \
+                        \$config_option \
+                        --spring.profiles.active=${params.ENV} \
+                        --server.port=${params.PORT} \
+                        --logging.file.name=${env.DEPLOY_PATH}/app.log \
+                        > ${env.DEPLOY_PATH}/nohup.log 2>&1 < /dev/null &
 
-        # Wait a few seconds for the app to start
-        sleep 5
+                    # Save PID
+                    echo \$! > ${env.DEPLOY_PATH}/app.pid
 
-        # Verify the app is running by checking the PID
-        if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
-            echo "❌ Deployment failed: Spring Boot app is not running!"
-            tail -n 50 ${env.DEPLOY_PATH}/app.log
-            exit 1
-        fi
+                    # Wait for the app to start
+                    sleep 5
 
-        echo "✅ Deployment verified: app is running with PID \$(cat ${env.DEPLOY_PATH}/app.pid)"
-        """
-    }
-}
+                    # Verify the app
+                    if ! ps -p \$(cat ${env.DEPLOY_PATH}/app.pid) > /dev/null; then
+                        echo "❌ Deployment failed: Spring Boot app is not running!"
+                        tail -n 50 ${env.DEPLOY_PATH}/app.log
+                        exit 1
+                    fi
 
+                    echo "✅ Deployment verified: app running with PID \$(cat ${env.DEPLOY_PATH}/app.pid) on port ${params.PORT} using profile ${params.ENV}"
+                """
+            }
+        }
     }
 
     post {
