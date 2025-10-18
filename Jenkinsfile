@@ -15,6 +15,7 @@ pipeline {
     }
 
     stages {
+        // Only needed for 'start'
         stage('Verify Maven') {
             when { expression { params.ACTION == 'start' } }
             steps { sh 'mvn -v' }
@@ -39,7 +40,7 @@ pipeline {
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
-                echo "Copying build artifacts and deployment script..."
+                echo "Copying build artifacts and deployment scripts..."
                 sh """
                     ssh -o StrictHostKeyChecking=no jenkins@localhost '
                         mkdir -p $DEPLOY_PATH/target
@@ -50,21 +51,30 @@ pipeline {
 
                     scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
                     scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
-                    scp -o StrictHostKeyChecking=no deploy/deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh
-                    ssh -o StrictHostKeyChecking=no jenkins@localhost "chmod +x $DEPLOY_PATH/deploy_remote.sh"
+                    scp -o StrictHostKeyChecking=no deploy/deploy_start.sh jenkins@localhost:$DEPLOY_PATH/deploy_start.sh
+                    scp -o StrictHostKeyChecking=no deploy/deploy_control.sh jenkins@localhost:$DEPLOY_PATH/deploy_control.sh
+                    ssh -o StrictHostKeyChecking=no jenkins@localhost "chmod +x $DEPLOY_PATH/deploy_*.sh"
                 """
             }
         }
 
         stage('Execute Remote Action') {
             steps {
+                echo "Running action: ${params.ACTION}"
                 script {
-                    def remoteCmd = "bash $DEPLOY_PATH/deploy_remote.sh ${params.ACTION}"
                     if (params.ACTION == 'start') {
-                        remoteCmd += " ${params.ENV} ${params.PORT}"
+                        sh """
+                            ssh -o StrictHostKeyChecking=no jenkins@localhost \
+                                "bash $DEPLOY_PATH/deploy_start.sh ${params.ENV} ${params.PORT}"
+                        """
+                    } else if (params.ACTION == 'stop' || params.ACTION == 'status') {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no jenkins@localhost \
+                                "bash $DEPLOY_PATH/deploy_control.sh ${params.ACTION}"
+                        """
+                    } else {
+                        error "Unknown ACTION: ${params.ACTION}"
                     }
-                    echo "Running action: ${params.ACTION}"
-                    sh "ssh -o StrictHostKeyChecking=no jenkins@localhost '${remoteCmd}'"
                 }
             }
         }
