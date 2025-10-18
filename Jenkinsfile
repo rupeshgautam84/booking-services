@@ -15,13 +15,11 @@ pipeline {
     }
 
     stages {
-        // Only run Maven verification if starting
         stage('Verify Maven') {
             when { expression { params.ACTION == 'start' } }
             steps { sh 'mvn -v' }
         }
 
-        // Only checkout code if starting
         stage('Checkout') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -30,7 +28,6 @@ pipeline {
             }
         }
 
-        // Only build JAR if starting
         stage('Build') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -39,7 +36,6 @@ pipeline {
             }
         }
 
-        // Only copy files if starting
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -51,7 +47,6 @@ pipeline {
                         mkdir -p $DEPLOY_PATH/src/main/resources
                         chown -R jenkins:jenkins $DEPLOY_PATH
                     '
-
                     scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
                     scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
                     scp -o StrictHostKeyChecking=no deploy/deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh
@@ -60,14 +55,16 @@ pipeline {
             }
         }
 
-        // Always execute the action (start, stop, or status)
         stage('Execute Remote Action') {
             steps {
                 echo "Running action: ${params.ACTION}"
-                sh """
-                    ssh -o StrictHostKeyChecking=no jenkins@localhost \
-                        "bash $DEPLOY_PATH/deploy_remote.sh ${params.ACTION} ${params.ENV} ${params.PORT}"
-                """
+                script {
+                    def remoteCmd = "bash $DEPLOY_PATH/deploy_remote.sh ${params.ACTION}"
+                    if (params.ACTION == 'start') {
+                        remoteCmd += " ${params.ENV} ${params.PORT}"
+                    }
+                    sh "ssh -o StrictHostKeyChecking=no jenkins@localhost '${remoteCmd}'"
+                }
             }
         }
     }
