@@ -47,6 +47,7 @@ pipeline {
                         mkdir -p $DEPLOY_PATH/src/main/resources
                         chown -R jenkins:jenkins $DEPLOY_PATH
                     '
+
                     scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
                     scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
                     scp -o StrictHostKeyChecking=no deploy/deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh

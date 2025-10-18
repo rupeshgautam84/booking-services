@@ -8,9 +8,6 @@ DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
 
 echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
-echo "======================================="
-echo "Timestamp: $(date)"
-echo "======================================="
 
 # --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
@@ -20,11 +17,12 @@ if [ "$ACTION" == "stop" ]; then
         if ps -p $PID > /dev/null 2>&1; then
             echo "➡️ Stopping app with PID $PID..."
             kill $PID || true
+            rm -f "$DEPLOY_PATH/app.pid"
             echo "✅ Application stopped successfully."
         else
-            echo "⚠️ PID file exists but process not running."
+            echo "⚠️ PID file found but process not running. Cleaning up..."
+            rm -f "$DEPLOY_PATH/app.pid"
         fi
-        rm -f "$DEPLOY_PATH/app.pid"
     else
         echo "ℹ️ No running instance found. Nothing to stop."
     fi
@@ -50,17 +48,18 @@ fi
 echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
+# Find latest JAR
 latest_jar=$(ls -t $DEPLOY_PATH/target/*.jar | head -n 1)
 cp "$latest_jar" "$DEPLOY_PATH/app.jar"
 
+# Copy environment-specific config if needed
 CONFIG_OPTION=""
 if [ "$ENVIRONMENT" != "default" ]; then
-    CONFIG_FILE="$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties"
-    if [ -f "$CONFIG_FILE" ]; then
-        cp "$CONFIG_FILE" "$CONFIG_PATH/application.properties"
+    if [ -f "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" ]; then
+        cp "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" "$CONFIG_PATH/application.properties"
         CONFIG_OPTION="--spring.config.location=file:$CONFIG_PATH/application.properties"
     else
-        echo "⚠️ Config file $CONFIG_FILE not found. Using embedded configuration."
+        echo "⚠️ Config file for environment '$ENVIRONMENT' not found. Using default configuration."
     fi
 fi
 
