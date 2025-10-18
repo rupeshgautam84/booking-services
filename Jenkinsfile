@@ -9,9 +9,9 @@ pipeline {
 
     parameters {
         string(name: 'BRANCH', defaultValue: 'master', description: 'Branch to build and deploy')
+        choice(name: 'ACTION', choices: ['start', 'stop', 'status'], description: 'Action to perform: start, stop, or status')
         string(name: 'ENV', defaultValue: 'default', description: 'Environment to deploy (default, dev, prod)')
         string(name: 'PORT', defaultValue: '9090', description: 'Port for Spring Boot app')
-        choice(name: 'ACTION', choices: ['start', 'stop'], description: 'Action to perform: start or stop the app')
     }
 
     stages {
@@ -39,7 +39,7 @@ pipeline {
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
-                echo "Copying files and setting permissions..."
+                echo "Copying build artifacts and script to remote path..."
                 sh """
                     ssh -o StrictHostKeyChecking=no jenkins@localhost '
                         mkdir -p $DEPLOY_PATH/target
@@ -47,6 +47,7 @@ pipeline {
                         mkdir -p $DEPLOY_PATH/src/main/resources
                         chown -R jenkins:jenkins $DEPLOY_PATH
                     '
+
                     scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
                     scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
                     scp -o StrictHostKeyChecking=no deploy/deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh
@@ -55,45 +56,19 @@ pipeline {
             }
         }
 
-        stage('Deploy or Stop via SSH') {
+        stage('Execute Remote Action') {
             steps {
-                script {
-                    if (params.ACTION == 'start') {
-                        echo "🚀 Starting application..."
-                        sh """
-                            ssh -o StrictHostKeyChecking=no jenkins@localhost \
-                                "bash $DEPLOY_PATH/deploy_remote.sh start ${params.ENV} ${params.PORT}"
-                        """
-                    } else {
-                        echo "🛑 Stopping application..."
-                        sh """
-                            ssh -o StrictHostKeyChecking=no jenkins@localhost \
-                                "bash $DEPLOY_PATH/deploy_remote.sh stop"
-                        """
-                    }
-                }
+                echo "Running action: ${params.ACTION}"
+                sh """
+                    ssh -o StrictHostKeyChecking=no jenkins@localhost \
+                        "bash $DEPLOY_PATH/deploy_remote.sh ${params.ACTION} ${params.ENV} ${params.PORT}"
+                """
             }
         }
     }
 
     post {
-        success {
-            script {
-                if (params.ACTION == 'start') {
-                    echo "✅ Application started successfully!"
-                } else {
-                    echo "✅ Application stopped successfully!"
-                }
-            }
-        }
-        failure {
-            script {
-                if (params.ACTION == 'start') {
-                    echo "❌ Failed to start the app. Check logs!"
-                } else {
-                    echo "❌ Failed to stop the app. Check logs!"
-                }
-            }
-        }
+        success { echo "✅ ${params.ACTION.toUpperCase()} action completed successfully!" }
+        failure { echo "❌ ${params.ACTION.toUpperCase()} action failed. Check Jenkins logs for details." }
     }
 }
