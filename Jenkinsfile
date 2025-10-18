@@ -51,8 +51,9 @@ pipeline {
 
                     scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
                     scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
-                    scp -o StrictHostKeyChecking=no deploy/deploy_start.sh jenkins@localhost:$DEPLOY_PATH/deploy_start.sh
-                    scp -o StrictHostKeyChecking=no deploy/deploy_control.sh jenkins@localhost:$DEPLOY_PATH/deploy_control.sh
+                    scp -o StrictHostKeyChecking=no deploy_start.sh jenkins@localhost:$DEPLOY_PATH/deploy_start.sh
+                    scp -o StrictHostKeyChecking=no deploy_control.sh jenkins@localhost:$DEPLOY_PATH/deploy_control.sh
+                    scp -o StrictHostKeyChecking=no deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh
                     ssh -o StrictHostKeyChecking=no jenkins@localhost "chmod +x $DEPLOY_PATH/deploy_*.sh"
                 """
             }
