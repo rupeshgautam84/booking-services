@@ -1,21 +1,27 @@
 pipeline {
     agent any
-    tools { maven 'Maven 3.8.7' }
+
+    tools { 
+        maven 'Maven 3.8.7' 
+    }
 
     environment {
-        REPO_URL = 'https://github.com/rupeshgautam84/booking-services.git'
-        DEPLOY_PATH = '/opt/myapp'
+        REPO_URL    = 'https://github.com/rupeshgautam84/booking-services.git'
+        DEPLOY_DIR  = '/opt/myapp'
     }
 
     parameters {
         string(name: 'BRANCH', defaultValue: 'master', description: 'Branch to build and deploy')
-        string(name: 'ENV', defaultValue: 'default', description: 'Environment to deploy (default, dev, prod)')
+        string(name: 'ENV', defaultValue: 'default', description: 'Environment to deploy (default, local, dev, prod)')
         string(name: 'PORT', defaultValue: '9090', description: 'Port for Spring Boot app')
+        choice(name: 'ACTION', choices: ['start','stop'], description: 'Start or stop the app')
     }
 
     stages {
         stage('Verify Maven') {
-            steps { sh 'mvn -v' }
+            steps {
+                sh 'mvn -v'
+            }
         }
 
         stage('Checkout') {
@@ -26,43 +32,32 @@ pipeline {
         }
 
         stage('Build') {
+            when { expression { params.ACTION == 'start' } } // Only build if starting
             steps {
-                echo "Building JAR..."
+                echo "Building Spring Boot JAR..."
                 sh 'mvn clean package -DskipTests'
             }
         }
 
-        stage('Prepare Deploy') {
+        stage('Deploy') {
             steps {
-                echo "Copying files to deployment directory and setting permissions..."
+                echo "Running deploy_remote.sh with action: ${params.ACTION}"
                 sh """
-                    ssh -o StrictHostKeyChecking=no jenkins@localhost '
-                        mkdir -p $DEPLOY_PATH/target
-                        mkdir -p $DEPLOY_PATH/config
-                        mkdir -p $DEPLOY_PATH/src/main/resources
-                        chown -R jenkins:jenkins $DEPLOY_PATH
-                    '
-                    scp -o StrictHostKeyChecking=no target/*.jar jenkins@localhost:$DEPLOY_PATH/target/
-                    scp -o StrictHostKeyChecking=no -r src/main/resources/*.properties jenkins@localhost:$DEPLOY_PATH/src/main/resources/ || true
-                    scp -o StrictHostKeyChecking=no deploy_remote.sh jenkins@localhost:$DEPLOY_PATH/deploy_remote.sh
-                    ssh -o StrictHostKeyChecking=no jenkins@localhost "chmod +x $DEPLOY_PATH/deploy_remote.sh"
-                """
-            }
-        }
-
-        stage('Deploy via SSH') {
-            steps {
-                echo "Deploying application via SSH..."
-                sh """
-                    ssh -o StrictHostKeyChecking=no jenkins@localhost \
-                        "bash $DEPLOY_PATH/deploy_remote.sh ${params.ENV} ${params.PORT}"
+                    # Ensure deploy script is executable
+                    chmod +x ./deploy/deploy_remote.sh
+                    # Execute script with action, environment, and port
+                    ./deploy/deploy_remote.sh ${params.ACTION} ${params.ENV} ${params.PORT}
                 """
             }
         }
     }
 
     post {
-        success { echo "✅ Deployment completed successfully!" }
-        failure { echo "❌ Deployment failed. Check Jenkins logs for details." }
+        success {
+            echo "✅ Deployment pipeline finished successfully!"
+        }
+        failure {
+            echo "❌ Deployment pipeline failed. Check logs for details."
+        }
     }
 }
