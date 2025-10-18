@@ -9,7 +9,7 @@ CONFIG_PATH="${DEPLOY_PATH}/config"
 
 # --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
-    echo "🛑 Attempting to stop the running application..."
+    echo "🛑 Action: STOP"
     if [ -f "$DEPLOY_PATH/app.pid" ]; then
         PID=$(cat "$DEPLOY_PATH/app.pid")
         if ps -p $PID > /dev/null 2>&1; then
@@ -29,6 +29,7 @@ fi
 
 # --- STATUS LOGIC ---
 if [ "$ACTION" == "status" ]; then
+    echo "ℹ️ Action: STATUS"
     if [ -f "$DEPLOY_PATH/app.pid" ]; then
         PID=$(cat "$DEPLOY_PATH/app.pid")
         if ps -p $PID > /dev/null 2>&1; then
@@ -43,7 +44,7 @@ if [ "$ACTION" == "status" ]; then
 fi
 
 # --- START LOGIC ---
-echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
+echo "🌀 Action: START | Environment: $ENVIRONMENT | Port: $PORT"
 echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
