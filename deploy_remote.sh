@@ -7,20 +7,21 @@ PORT=${3:-9090}
 DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
 
+echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
+
 # --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
-    echo "🛑 Action: STOP"
+    echo "🛑 Attempting to stop the running application..."
     if [ -f "$DEPLOY_PATH/app.pid" ]; then
         PID=$(cat "$DEPLOY_PATH/app.pid")
         if ps -p $PID > /dev/null 2>&1; then
             echo "➡️ Stopping app with PID $PID..."
             kill $PID || true
-            rm -f "$DEPLOY_PATH/app.pid"
             echo "✅ Application stopped successfully."
         else
-            echo "⚠️ PID file found but process not running. Cleaning up..."
-            rm -f "$DEPLOY_PATH/app.pid"
+            echo "⚠️ PID file found but process not running."
         fi
+        rm -f "$DEPLOY_PATH/app.pid"
     else
         echo "ℹ️ No running instance found. Nothing to stop."
     fi
@@ -29,7 +30,6 @@ fi
 
 # --- STATUS LOGIC ---
 if [ "$ACTION" == "status" ]; then
-    echo "ℹ️ Action: STATUS"
     if [ -f "$DEPLOY_PATH/app.pid" ]; then
         PID=$(cat "$DEPLOY_PATH/app.pid")
         if ps -p $PID > /dev/null 2>&1; then
@@ -44,7 +44,6 @@ if [ "$ACTION" == "status" ]; then
 fi
 
 # --- START LOGIC ---
-echo "🌀 Action: START | Environment: $ENVIRONMENT | Port: $PORT"
 echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
