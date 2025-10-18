@@ -11,7 +11,7 @@ pipeline {
         string(name: 'BRANCH', defaultValue: 'master', description: 'Branch to build and deploy')
         string(name: 'ENV', defaultValue: 'default', description: 'Environment to deploy (default, dev, prod)')
         string(name: 'PORT', defaultValue: '9090', description: 'Port for Spring Boot app')
-        choice(name: 'ACTION', choices: ['start', 'stop'], description: 'Action to perform (start or stop the app)')
+        choice(name: 'ACTION', choices: ['start', 'stop'], description: 'Action to perform: start or stop the app')
     }
 
     stages {
@@ -39,7 +39,7 @@ pipeline {
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
-                echo "Copying files to deployment directory and setting permissions..."
+                echo "Copying files and setting permissions..."
                 sh """
                     ssh -o StrictHostKeyChecking=no jenkins@localhost '
                         mkdir -p $DEPLOY_PATH/target
@@ -55,17 +55,17 @@ pipeline {
             }
         }
 
-        stage('Deploy / Stop via SSH') {
+        stage('Deploy or Stop via SSH') {
             steps {
                 script {
                     if (params.ACTION == 'start') {
-                        echo "🚀 Starting application via SSH..."
+                        echo "🚀 Starting application..."
                         sh """
                             ssh -o StrictHostKeyChecking=no jenkins@localhost \
                                 "bash $DEPLOY_PATH/deploy_remote.sh start ${params.ENV} ${params.PORT}"
                         """
                     } else {
-                        echo "🛑 Stopping application via SSH..."
+                        echo "🛑 Stopping application..."
                         sh """
                             ssh -o StrictHostKeyChecking=no jenkins@localhost \
                                 "bash $DEPLOY_PATH/deploy_remote.sh stop"
@@ -89,9 +89,9 @@ pipeline {
         failure {
             script {
                 if (params.ACTION == 'start') {
-                    echo "❌ Application start failed. Check Jenkins logs for details."
+                    echo "❌ Failed to start the app. Check logs!"
                 } else {
-                    echo "❌ Application stop failed. Check Jenkins logs for details."
+                    echo "❌ Failed to stop the app. Check logs!"
                 }
             }
         }

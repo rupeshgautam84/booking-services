@@ -7,19 +7,30 @@ PORT=${3:-9090}
 DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
 
+echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
+
+# --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
-    echo "🛑 Stopping application..."
+    echo "🛑 Attempting to stop the running application..."
     if [ -f "$DEPLOY_PATH/app.pid" ]; then
-        kill $(cat "$DEPLOY_PATH/app.pid") || true
-        rm -f "$DEPLOY_PATH/app.pid"
-        echo "✅ Application stopped."
+        PID=$(cat "$DEPLOY_PATH/app.pid")
+        if ps -p $PID > /dev/null 2>&1; then
+            echo "➡️ Stopping app with PID $PID..."
+            kill $PID || true
+            rm -f "$DEPLOY_PATH/app.pid"
+            echo "✅ Application stopped successfully."
+        else
+            echo "⚠️ PID file found but process not running. Cleaning up..."
+            rm -f "$DEPLOY_PATH/app.pid"
+        fi
     else
-        echo "⚠️ No running app found."
+        echo "ℹ️ No running instance found. Nothing to stop."
     fi
     exit 0
 fi
 
-echo "🚀 Starting application with ENV=$ENVIRONMENT PORT=$PORT"
+# --- START LOGIC ---
+echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
 latest_jar=$(ls -t $DEPLOY_PATH/target/*.jar | head -n 1)
@@ -32,8 +43,13 @@ else
     CONFIG_OPTION=""
 fi
 
+# Stop any running instance before starting new
 if [ -f "$DEPLOY_PATH/app.pid" ]; then
-    kill $(cat "$DEPLOY_PATH/app.pid") || true
+    OLD_PID=$(cat "$DEPLOY_PATH/app.pid")
+    if ps -p $OLD_PID > /dev/null 2>&1; then
+        echo "⚠️ Stopping existing app (PID=$OLD_PID)..."
+        kill $OLD_PID || true
+    fi
     rm -f "$DEPLOY_PATH/app.pid"
 fi
 
@@ -45,4 +61,4 @@ nohup java -jar "$DEPLOY_PATH/app.jar" \
     > "$DEPLOY_PATH/nohup.out" 2>&1 &
 
 echo $! > "$DEPLOY_PATH/app.pid"
-echo "✅ Application started successfully (PID=$(cat $DEPLOY_PATH/app.pid))."
+echo "✅ Application started successfully (PID=$(cat $DEPLOY_PATH/app.pid))"
