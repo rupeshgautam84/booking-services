@@ -39,7 +39,7 @@ pipeline {
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
-                echo "Copying build artifacts and script to remote path..."
+                echo "Copying build artifacts and deployment script..."
                 sh """
                     ssh -o StrictHostKeyChecking=no jenkins@localhost '
                         mkdir -p $DEPLOY_PATH/target
