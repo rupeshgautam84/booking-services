@@ -4,87 +4,14 @@ set -e
 ACTION=$1
 ENVIRONMENT=${2:-default}
 PORT=${3:-9090}
+
 DEPLOY_PATH="/opt/myapp"
-CONFIG_PATH="${DEPLOY_PATH}/config"
 
-echo "======================================="
-echo "🚀 Local SSH Deploy"
-echo "Action      : $ACTION"
-echo "Environment : $ENVIRONMENT"
-echo "Port        : $PORT"
-echo "Timestamp   : $(date)"
-echo "======================================="
-
-# --- STOP LOGIC ---
-if [ "$ACTION" == "stop" ]; then
-    echo "🛑 Attempting to stop the running application..."
-    if [ -f "$DEPLOY_PATH/app.pid" ]; then
-        PID=$(cat "$DEPLOY_PATH/app.pid")
-        if ps -p $PID > /dev/null 2>&1; then
-            echo "➡️ Stopping app with PID $PID..."
-            kill $PID || true
-            rm -f "$DEPLOY_PATH/app.pid"
-            echo "✅ Application stopped successfully."
-            exit 0
-        else
-            echo "⚠️ PID file found but process not running. Cleaning up..."
-            rm -f "$DEPLOY_PATH/app.pid"
-            exit 0
-        fi
-    else
-        echo "ℹ️ No running instance found. Nothing to stop."
-        exit
-    fi
-    echo "✅ STOP action complete. Exiting."
-    exit 0
-fi
-
-# --- STATUS LOGIC ---
-if [ "$ACTION" == "status" ]; then
-    if [ -f "$DEPLOY_PATH/app.pid" ]; then
-        PID=$(cat "$DEPLOY_PATH/app.pid")
-        if ps -p $PID > /dev/null 2>&1; then
-            echo "ℹ️ Application is running (PID=$PID)"
-        else
-            echo "⚠️ PID file exists but process not running"
-        fi
-    else
-        echo "ℹ️ Application is not running"
-    fi
-    exit 0
-fi
-
-# --- START LOGIC ---
-echo "🚀 Starting application..."
-mkdir -p "$CONFIG_PATH"
-
-latest_jar=$(ls -t $DEPLOY_PATH/target/*.jar | head -n 1)
-cp "$latest_jar" "$DEPLOY_PATH/app.jar"
-
-if [ "$ENVIRONMENT" != "default" ]; then
-    cp "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" "$CONFIG_PATH/application.properties"
-    CONFIG_OPTION="--spring.config.location=file:$CONFIG_PATH/application.properties"
+if [ "$ACTION" == "start" ]; then
+    bash "$DEPLOY_PATH/deploy_start.sh" "$ENVIRONMENT" "$PORT"
+elif [ "$ACTION" == "stop" ] || [ "$ACTION" == "status" ]; then
+    bash "$DEPLOY_PATH/deploy_control.sh" "$ACTION"
 else
-    CONFIG_OPTION=""
+    echo "❌ Unknown action: $ACTION"
+    exit 1
 fi
-
-# Stop any running instance before starting new
-if [ -f "$DEPLOY_PATH/app.pid" ]; then
-    OLD_PID=$(cat "$DEPLOY_PATH/app.pid")
-    if ps -p $OLD_PID > /dev/null 2>&1; then
-        echo "⚠️ Stopping existing app (PID=$OLD_PID)..."
-        kill $OLD_PID || true
-    fi
-    rm -f "$DEPLOY_PATH/app.pid"
-fi
-
-nohup java -jar "$DEPLOY_PATH/app.jar" \
-    $CONFIG_OPTION \
-    --spring.profiles.active="$ENVIRONMENT" \
-    --server.port="$PORT" \
-    --logging.file.name="$DEPLOY_PATH/app.log" \
-    > "$DEPLOY_PATH/nohup.out" 2>&1 &
-
-echo $! > "$DEPLOY_PATH/app.pid"
-echo "✅ Application started successfully (PID=$(cat $DEPLOY_PATH/app.pid))"
-echo "✅ START action complete."
