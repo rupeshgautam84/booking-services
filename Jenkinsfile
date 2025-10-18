@@ -15,11 +15,13 @@ pipeline {
     }
 
     stages {
+        // Only run Maven verification if starting
         stage('Verify Maven') {
             when { expression { params.ACTION == 'start' } }
             steps { sh 'mvn -v' }
         }
 
+        // Only checkout code if starting
         stage('Checkout') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -28,6 +30,7 @@ pipeline {
             }
         }
 
+        // Only build JAR if starting
         stage('Build') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -36,6 +39,7 @@ pipeline {
             }
         }
 
+        // Only copy files if starting
         stage('Prepare Deploy') {
             when { expression { params.ACTION == 'start' } }
             steps {
@@ -56,6 +60,7 @@ pipeline {
             }
         }
 
+        // Always execute the action (start, stop, or status)
         stage('Execute Remote Action') {
             steps {
                 echo "Running action: ${params.ACTION}"
