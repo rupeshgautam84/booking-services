@@ -25,12 +25,15 @@ if [ "$ACTION" == "stop" ]; then
             kill $PID || true
             rm -f "$DEPLOY_PATH/app.pid"
             echo "✅ Application stopped successfully."
+            exit 0
         else
             echo "⚠️ PID file found but process not running. Cleaning up..."
             rm -f "$DEPLOY_PATH/app.pid"
+            exit 0
         fi
     else
         echo "ℹ️ No running instance found. Nothing to stop."
+        exit
     fi
     echo "✅ STOP action complete. Exiting."
     exit 0
