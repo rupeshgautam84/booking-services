@@ -7,7 +7,13 @@ PORT=${3:-9090}
 DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
 
-echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
+echo "======================================="
+echo "🚀 Local SSH Deploy"
+echo "Action      : $ACTION"
+echo "Environment : $ENVIRONMENT"
+echo "Port        : $PORT"
+echo "Timestamp   : $(date)"
+echo "======================================="
 
 # --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
@@ -26,6 +32,7 @@ if [ "$ACTION" == "stop" ]; then
     else
         echo "ℹ️ No running instance found. Nothing to stop."
     fi
+    echo "✅ STOP action complete. Exiting."
     exit 0
 fi
 
@@ -48,19 +55,14 @@ fi
 echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
-# Find latest JAR
 latest_jar=$(ls -t $DEPLOY_PATH/target/*.jar | head -n 1)
 cp "$latest_jar" "$DEPLOY_PATH/app.jar"
 
-# Copy environment-specific config if needed
-CONFIG_OPTION=""
 if [ "$ENVIRONMENT" != "default" ]; then
-    if [ -f "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" ]; then
-        cp "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" "$CONFIG_PATH/application.properties"
-        CONFIG_OPTION="--spring.config.location=file:$CONFIG_PATH/application.properties"
-    else
-        echo "⚠️ Config file for environment '$ENVIRONMENT' not found. Using default configuration."
-    fi
+    cp "$DEPLOY_PATH/src/main/resources/application-$ENVIRONMENT.properties" "$CONFIG_PATH/application.properties"
+    CONFIG_OPTION="--spring.config.location=file:$CONFIG_PATH/application.properties"
+else
+    CONFIG_OPTION=""
 fi
 
 # Stop any running instance before starting new
@@ -82,3 +84,4 @@ nohup java -jar "$DEPLOY_PATH/app.jar" \
 
 echo $! > "$DEPLOY_PATH/app.pid"
 echo "✅ Application started successfully (PID=$(cat $DEPLOY_PATH/app.pid))"
+echo "✅ START action complete."

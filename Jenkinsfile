@@ -58,12 +58,12 @@ pipeline {
 
         stage('Execute Remote Action') {
             steps {
-                echo "Running action: ${params.ACTION}"
                 script {
                     def remoteCmd = "bash $DEPLOY_PATH/deploy_remote.sh ${params.ACTION}"
                     if (params.ACTION == 'start') {
                         remoteCmd += " ${params.ENV} ${params.PORT}"
                     }
+                    echo "Running action: ${params.ACTION}"
                     sh "ssh -o StrictHostKeyChecking=no jenkins@localhost '${remoteCmd}'"
                 }
             }
