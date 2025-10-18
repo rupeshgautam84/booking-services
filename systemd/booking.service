@@ -1,0 +1,17 @@
+[Unit]
+Description=BookingService Spring Boot App
+After=network.target
+
+[Service]
+User=jenkins
+WorkingDirectory=/opt/myapp
+ExecStart=/opt/myapp/deploy-wrapper.sh
+SuccessExitStatus=143
+Restart=always
+RestartSec=5
+StandardOutput=file:/opt/myapp/app.log
+StandardError=file:/opt/myapp/app.log
+
+[Install]
+WantedBy=multi-user.target
+
