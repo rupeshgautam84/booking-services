@@ -7,8 +7,6 @@ PORT=${3:-9090}
 DEPLOY_PATH="/opt/myapp"
 CONFIG_PATH="${DEPLOY_PATH}/config"
 
-echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
-
 # --- STOP LOGIC ---
 if [ "$ACTION" == "stop" ]; then
     echo "🛑 Attempting to stop the running application..."
@@ -45,6 +43,7 @@ if [ "$ACTION" == "status" ]; then
 fi
 
 # --- START LOGIC ---
+echo "🌀 Action: $ACTION | Environment: $ENVIRONMENT | Port: $PORT"
 echo "🚀 Starting application..."
 mkdir -p "$CONFIG_PATH"
 
