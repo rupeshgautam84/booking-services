@@ -17,11 +17,6 @@ if [ "$ACTION" == "stop" ]; then
         if ps -p $PID > /dev/null 2>&1; then
             echo "➡️ Stopping app with PID $PID..."
             kill $PID || true
-            sleep 2
-            if ps -p $PID > /dev/null 2>&1; then
-                echo "⚠️ Process still alive, force killing..."
-                kill -9 $PID || true
-            fi
             rm -f "$DEPLOY_PATH/app.pid"
             echo "✅ Application stopped successfully."
         else
@@ -31,7 +26,22 @@ if [ "$ACTION" == "stop" ]; then
     else
         echo "ℹ️ No running instance found. Nothing to stop."
     fi
-    exit 0  # ✅ This prevents the start section from running
+    exit 0
+fi
+
+# --- STATUS LOGIC ---
+if [ "$ACTION" == "status" ]; then
+    if [ -f "$DEPLOY_PATH/app.pid" ]; then
+        PID=$(cat "$DEPLOY_PATH/app.pid")
+        if ps -p $PID > /dev/null 2>&1; then
+            echo "ℹ️ Application is running (PID=$PID)"
+        else
+            echo "⚠️ PID file exists but process not running"
+        fi
+    else
+        echo "ℹ️ Application is not running"
+    fi
+    exit 0
 fi
 
 # --- START LOGIC ---
@@ -54,7 +64,6 @@ if [ -f "$DEPLOY_PATH/app.pid" ]; then
     if ps -p $OLD_PID > /dev/null 2>&1; then
         echo "⚠️ Stopping existing app (PID=$OLD_PID)..."
         kill $OLD_PID || true
-        sleep 2
     fi
     rm -f "$DEPLOY_PATH/app.pid"
 fi
